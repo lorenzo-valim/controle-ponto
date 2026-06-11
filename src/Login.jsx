@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { Form } from 'react-bootstrap';
 import { useNavigate } from "react-router-dom";
+import { login } from './api';
 
-function Login() {
+function Login({ setSessao }) {
   const navigate = useNavigate();
   const [username, setUsername]     = useState('');
   const [password, setPassword]     = useState('');
@@ -21,8 +22,8 @@ function Login() {
     }
   }, []);
 
-  const handleSubmit = async (event) => {
-    event.preventDefault();
+ async function handleLogin(event) {
+    event.preventDefault(); // Evita o reload da página imediatamente
     setError('');
 
     if (!username || !password) {
@@ -30,17 +31,34 @@ function Login() {
       return;
     }
 
-    if (rememberMe) {
-      localStorage.setItem('username', username);
-      localStorage.setItem('password', password);
-    } else {
-      localStorage.removeItem('username');
-      localStorage.removeItem('password');
-    }
+    try {
+      setLoading(true);
+      
+      // 1. Faz a requisição real para a API através do api.js
+      const dados = await login(username, password); 
+      
+      // 2. Salva os dados retornados (token, usuarioId, nome) no estado
+      setSessao({ token: dados.token, usuarioId: dados.usuarioId, nome: dados.nome });
+      
+      // 3. Trata o recurso "Lembrar-me"
+      if (rememberMe) {
+        localStorage.setItem('username', username);
+        localStorage.setItem('password', password);
+      } else {
+        localStorage.removeItem('username');
+        localStorage.removeItem('password');
+      }
 
-    // Redireciona para a tela Home com sucesso!
-    navigate('/home');
-  };
+      // 4. Se chegou até aqui sem dar erro, o login foi um sucesso! Redireciona:
+      navigate('/home');
+
+    } catch (err) {
+      // Se a API retornar 401 (Incorreto) ou der erro de rede, cai aqui:
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  }
 
   return (
     <div className="login-wrapper">
@@ -62,7 +80,7 @@ function Login() {
           </div>
         )}
 
-        <Form className="login-form" onSubmit={handleSubmit}>
+        <Form className="login-form" onSubmit={handleLogin}>
           <Form.Group className="mb-3" controlId="formBasicUsername">
             <Form.Control
               type="text"
